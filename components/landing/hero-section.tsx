@@ -37,9 +37,13 @@ export function HeroSection() {
         <div className="max-w-3xl pointer-events-auto">
           {/* Eyebrow badge */}
           <div className="mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 fill-mode-both hover-lift">
-            <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium bg-primary/20 text-primary hover:bg-primary/30 border-none transition-colors backdrop-blur-sm">
-              ✨ Laboratorio Clínico Certificado
-            </Badge>
+            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs font-semibold tracking-wide text-white/80 transition-all hover:bg-white/10">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+              LABORATORIO CLÍNICO CERTIFICADO
+            </div>
           </div>
           
           {/* Main headline */}
@@ -57,8 +61,8 @@ export function HeroSection() {
           
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500 fill-mode-both">
-            <Button size="lg" className="rounded-full text-base px-8 h-14 w-full sm:w-auto shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary),0.5)] transition-all pointer-events-auto" asChild>
-              <a href="#contacto">Solicitar cita ahora</a>
+            <Button size="lg" className="rounded-full text-base px-8 h-14 w-full sm:w-auto bg-indigo-500 text-slate-900 hover:bg-indigo-600 shadow-sm border-none transition-all pointer-events-auto" asChild>
+              <a href="#contacto" className="text-white font-bold">Solicitar cita ahora</a>
             </Button>
             <Button size="lg" variant="outline" className="rounded-full text-base px-8 h-14 w-full sm:w-auto bg-background/20 backdrop-blur-md border-white/20 text-white hover:bg-background/40 hover:text-white pointer-events-auto" asChild>
               <a href="#servicios">Explorar servicios</a>
