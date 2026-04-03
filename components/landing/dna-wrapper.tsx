@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 const DNAScene = dynamic(
-  () => import("./dna-model").then((mod) => mod.DNAScene),
+  () => import("./dna-model").then((mod) => mod.DNAModel),
   { ssr: false, loading: () => <div className="absolute inset-0 bg-background/5 animate-pulse" /> }
 );
 
