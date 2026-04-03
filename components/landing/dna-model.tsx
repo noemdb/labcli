@@ -143,9 +143,7 @@ function Plexus({ count = 30, scale = 10 }: { count?: number, scale?: number }) 
 }
 
 /**
- * --- Advanced DNA Molecular System ---
- * Detailed Biotech representation: 
- * [Phosphate] -- [Sugar] -- [Base] === [Base] -- [Sugar] -- [Phosphate]
+ * --- Biotech Helix: Molecular Precision with Energy Pulses ---
  */
 
 const MOLECULAR_COLORS = {
@@ -155,6 +153,8 @@ const MOLECULAR_COLORS = {
   T: "#3b82f6",         // Blue
   C: "#eab308",         // Yellow
   G: "#8b5cf6",         // Purple
+  accent1: "#6366f1",   // Indigo
+  accent2: "#06b6d4",   // Cyan
   bond: "#ffffff"
 } as const;
 
@@ -167,7 +167,7 @@ const NUCLEOTIDE_DATA: { type: BaseType, pair: BaseType, bonds: 2 | 3 }[] = [
   { type: "G", pair: "C", bonds: 3 },
 ];
 
-function HydrogenBonds({ count, length, rotation }: { count: 2 | 3, length: number, rotation: number }) {
+function HydrogenBonds({ count, length, rotation, pulseStrength }: { count: 2 | 3, length: number, rotation: number, pulseStrength: number }) {
   const bondSpacing = 0.2;
   const startY = -((count - 1) * bondSpacing) / 2;
 
@@ -175,13 +175,13 @@ function HydrogenBonds({ count, length, rotation }: { count: 2 | 3, length: numb
     <group rotation={[0, -rotation, Math.PI / 2]}>
       {Array.from({ length: count }).map((_, i) => (
         <mesh key={i} position={[0, startY + i * bondSpacing, 0]}>
-          <cylinderGeometry args={[0.02, 0.02, length, 8]} />
+          <cylinderGeometry args={[0.015, 0.015, length, 8]} />
           <meshStandardMaterial 
             color={MOLECULAR_COLORS.bond} 
             emissive={MOLECULAR_COLORS.bond}
-            emissiveIntensity={0.5}
+            emissiveIntensity={0.2 + pulseStrength * 4}
             transparent 
-            opacity={0.3} 
+            opacity={0.15 + pulseStrength * 0.3} 
           />
         </mesh>
       ))}
@@ -189,36 +189,78 @@ function HydrogenBonds({ count, length, rotation }: { count: 2 | 3, length: numb
   );
 }
 
-function BaseNode({ type, position, rotation }: { type: BaseType, position: [number, number, number], rotation: number }) {
-  const color = MOLECULAR_COLORS[type];
+function BaseNode({ type, position, rotation, pulseStrength }: { type: BaseType, position: [number, number, number], rotation: number, pulseStrength: number }) {
+  const baseColor = new THREE.Color(MOLECULAR_COLORS[type]);
+  const accentColor = new THREE.Color(MOLECULAR_COLORS.accent2);
+  const flashColor = baseColor.clone().lerp(accentColor, pulseStrength * 0.8);
+
   return (
     <mesh position={position} rotation={[0, -rotation, Math.PI / 2]}>
-      <capsuleGeometry args={[0.08, 0.6, 4, 12]} />
+      <capsuleGeometry args={[0.07, 0.6, 4, 12]} />
       <meshPhysicalMaterial 
-        color={color} 
-        emissive={color}
-        emissiveIntensity={1.2}
-        roughness={0.2}
-        metalness={0.5}
-        transmission={0.2}
-        thickness={0.5}
+        color={flashColor} 
+        emissive={flashColor}
+        emissiveIntensity={0.8 + pulseStrength * 6}
+        roughness={0.15}
+        metalness={0.4}
+        transmission={0.5}
+        thickness={0.3}
       />
     </mesh>
   );
 }
 
-function MolecularNode({ color, position, size }: { color: string, position: [number, number, number], size: number }) {
+function MolecularNode({ color, position, size, pulseStrength }: { color: string, position: [number, number, number], size: number, pulseStrength: number }) {
+  const nodeColor = new THREE.Color(color);
+  const accentColor = new THREE.Color(MOLECULAR_COLORS.accent1);
+  const finalColor = nodeColor.clone().lerp(accentColor, pulseStrength * 0.4);
+
   return (
     <mesh position={position}>
       <sphereGeometry args={[size, 20, 20]} />
       <meshPhysicalMaterial 
-        color={color} 
-        roughness={0.15} 
-        metalness={0.6}
-        transmission={0.3}
-        thickness={1}
+        color={finalColor} 
+        emissive={finalColor}
+        emissiveIntensity={pulseStrength * 1.5}
+        roughness={0.1} 
+        metalness={0.5}
+        transmission={0.4}
+        thickness={0.8}
       />
     </mesh>
+  );
+}
+
+function EnergyFlowLines() {
+  const lines = useMemo(() => Array.from({ length: 8 }).map(() => ({
+    x: (Math.random() - 0.5) * 1.5,
+    z: (Math.random() - 0.5) * 1.5,
+    speed: 0.5 + Math.random() * 1.5,
+    offset: Math.random() * 10
+  })), []);
+
+  const lineRef = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (lineRef.current) {
+      const t = clock.elapsedTime || performance.now() / 1000;
+      lineRef.current.children.forEach((child, i) => {
+        const data = lines[i];
+        child.position.y = ((t * data.speed + data.offset) % 20) - 10;
+        const opacity = Math.sin((child.position.y + 10) / 20 * Math.PI);
+        (child as any).material.opacity = opacity * 0.15;
+      });
+    }
+  });
+
+  return (
+    <group ref={lineRef}>
+      {lines.map((_, i) => (
+        <mesh key={i}>
+          <cylinderGeometry args={[0.01, 0.01, 2, 8]} />
+          <meshBasicMaterial color={MOLECULAR_COLORS.accent2} transparent opacity={0.1} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -237,87 +279,91 @@ const ANNOTATIONS = [
 
 function DNAHelix({ opacity = 1, showAnnotations = false }) {
   const groupRef = useRef<THREE.Group>(null);
+  const [pulseY, setPulseY] = useState(-15);
   
-  // Setup deterministic sequence
   const helixData = useMemo(() => {
     return Array.from({ length: NUM_PAIRS }).map((_, i) => {
       const angle = i * 0.4;
       const y = (i / NUM_PAIRS) * DNA_HEIGHT - DNA_HEIGHT / 2;
       const basePair = NUCLEOTIDE_DATA[i % 4];
-      
-      // Calculate positions for both strands
       const calcPos = (a: number, r: number) => [Math.cos(a) * r, y, Math.sin(a) * r] as [number, number, number];
       
       return {
         y,
         angle,
         basePair,
-        strand1: {
-          phosphate: calcPos(angle, RADIUS_PHOSPHATE),
-          sugar: calcPos(angle, RADIUS_SUGAR),
-          base: calcPos(angle, RADIUS_BASE),
-        },
-        strand2: {
-          phosphate: calcPos(angle + Math.PI, RADIUS_PHOSPHATE),
-          sugar: calcPos(angle + Math.PI, RADIUS_SUGAR),
-          base: calcPos(angle + Math.PI, RADIUS_BASE),
-        }
+        strand1: { phosphate: calcPos(angle, RADIUS_PHOSPHATE), sugar: calcPos(angle, RADIUS_SUGAR), base: calcPos(angle, RADIUS_BASE) },
+        strand2: { phosphate: calcPos(angle + Math.PI, RADIUS_PHOSPHATE), sugar: calcPos(angle + Math.PI, RADIUS_SUGAR), base: calcPos(angle + Math.PI, RADIUS_BASE) }
       };
-    }, []);
+    });
   }, []);
 
   useFrame(({ clock }) => {
+    const t = clock.elapsedTime || performance.now() / 1000;
     if (groupRef.current) {
-      const t = clock.elapsedTime || performance.now() / 1000;
-      // Primary rotation
       groupRef.current.rotation.y = t * 0.08;
-      // Organic micro-osci
       groupRef.current.position.y = Math.sin(t * 0.5) * 0.2;
     }
+    // Update Pulse Position: looping bottom to top
+    setPulseY(((t * 3.5) % (DNA_HEIGHT + 10)) - (DNA_HEIGHT / 2 + 5));
   });
 
   return (
     <group ref={groupRef}>
-      {helixData.map((data, i) => (
-        <group key={i}>
-          {/* Strand 1: P -- S -- B */}
-          <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand1.phosphate} size={0.16} />
-          <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand1.sugar} size={0.24} />
-          <BaseNode type={data.basePair.type} position={data.strand1.base} rotation={data.angle} />
+      <EnergyFlowLines />
+      {helixData.map((data, i) => {
+        const dist = Math.abs(data.y - pulseY);
+        const pulseStrength = Math.exp(-Math.pow(dist / 2, 2));
 
-          {/* Strand 2: P -- S -- B */}
-          <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand2.phosphate} size={0.16} />
-          <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand2.sugar} size={0.24} />
-          <BaseNode type={data.basePair.pair} position={data.strand2.base} rotation={data.angle + Math.PI} />
+        return (
+          <group key={i}>
+            <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand1.phosphate} size={0.16} pulseStrength={pulseStrength} />
+            <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand1.sugar} size={0.24} pulseStrength={pulseStrength} />
+            <BaseNode type={data.basePair.type} position={data.strand1.base} rotation={data.angle} pulseStrength={pulseStrength} />
 
-          {/* Hydrogen Bonds */}
-          <HydrogenBonds count={data.basePair.bonds} length={RADIUS_BASE * 1.6} rotation={data.angle} />
+            <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand2.phosphate} size={0.16} pulseStrength={pulseStrength} />
+            <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand2.sugar} size={0.24} pulseStrength={pulseStrength} />
+            <BaseNode type={data.basePair.pair} position={data.strand2.base} rotation={data.angle + Math.PI} pulseStrength={pulseStrength} />
 
-          {/* Annotations */}
-          {showAnnotations && ANNOTATIONS.find(a => a.index === i) && (() => {
-            const annotation = ANNOTATIONS.find(a => a.index === i)!;
-            const pos = annotation.side === 1 ? data.strand1.sugar : data.strand2.sugar;
-            return (
-              <Html 
-                position={[pos[0] * 1.6, pos[1], pos[2] * 1.6]} 
-                center 
-                distanceFactor={15} 
-                className="pointer-events-none"
-              >
-                <div className="flex items-center gap-3 fade-in-out">
-                  <div className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,1)]"></span>
+            <HydrogenBonds count={data.basePair.bonds} length={RADIUS_BASE * 1.6} rotation={data.angle} pulseStrength={pulseStrength} />
+
+            {/* Backbone connection */}
+            <Line points={[data.strand1.phosphate, data.strand1.sugar]} color={MOLECULAR_COLORS.phosphate} lineWidth={0.3} transparent opacity={0.1 + pulseStrength * 0.2} />
+            <Line points={[data.strand2.phosphate, data.strand2.sugar]} color={MOLECULAR_COLORS.phosphate} lineWidth={0.3} transparent opacity={0.1 + pulseStrength * 0.2} />
+
+            {/* Premium Annotations */}
+            {showAnnotations && ANNOTATIONS.find(a => a.index === i) && (() => {
+              const ann = ANNOTATIONS.find(a => a.index === i)!;
+              const pos = ann.side === 1 ? data.strand1.sugar : data.strand2.sugar;
+              return (
+                <Html 
+                  position={[pos[0] * 1.8, pos[1], pos[2] * 1.8]} 
+                  center 
+                  distanceFactor={15}
+                  className="pointer-events-none select-none"
+                >
+                  <div className="flex items-center gap-4 transition-all duration-700">
+                    <div className="relative flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-40"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.8)]"></span>
+                    </div>
+                    <div className="group overflow-hidden">
+                      <div className="px-5 py-2.5 bg-slate-950/40 backdrop-blur-xl border border-white/10 rounded-sm skew-x-[-12deg] shadow-2xl transition-transform group-hover:scale-105">
+                        <div className="skew-x-[12deg]">
+                          <span className="text-[10px] font-black tracking-[0.25em] text-white/90 uppercase drop-shadow-sm">
+                            {ann.title}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-[2px] w-0 bg-gradient-to-r from-transparent via-cyan-400 to-transparent group-hover:w-full transition-all duration-1000 mt-1 opacity-50" />
+                    </div>
                   </div>
-                  <div className="px-3 py-1.5 bg-background/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold tracking-widest text-white/90 shadow-xl whitespace-nowrap uppercase">
-                    {annotation.title}
-                  </div>
-                </div>
-              </Html>
-            );
-          })()}
-        </group>
-      ))}
+                </Html>
+              );
+            })()}
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -344,7 +390,37 @@ function SceneCameraController() {
 
 // --- Main Scene ---
 
+import { useState, useEffect } from "react";
+
 export function DNAScene() {
+  const [dnaX, setDnaX] = useState(6);
+  const [dnaScale, setDnaScale] = useState(1);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      // Responsive positioning (sm: Left, md: Center, lg: Right)
+      if (width < 768) {
+        setDnaX(-4); // Left for small screens
+      } else if (width < 1024) {
+        setDnaX(0);  // Center for medium screens
+      } else {
+        setDnaX(6);  // Right for large screens
+      }
+
+      // Height limitation: Adjust scale if screen height is small
+      // Base height calculation for DNA_HEIGHT (20) relative to viewport
+      const targetScale = Math.min(1, (height / 900) * 1.1);
+      setDnaScale(targetScale);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <div className="absolute inset-0 w-full h-full pointer-events-none">
       <Canvas dpr={[1, 2]}>
@@ -384,7 +460,7 @@ export function DNAScene() {
         <Plexus count={40} scale={15} />
 
         {/* Primary DNA Helix */}
-        <Float speed={2} rotationIntensity={0.1} floatIntensity={0.3} position={[6, 0, 0]}>
+        <Float speed={2} rotationIntensity={0.1} floatIntensity={0.3} position={[dnaX, 0, 0]} scale={dnaScale}>
           <DNAHelix showAnnotations={true} />
         </Float>
 
