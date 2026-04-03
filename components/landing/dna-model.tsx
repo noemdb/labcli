@@ -167,21 +167,34 @@ const NUCLEOTIDE_DATA: { type: BaseType, pair: BaseType, bonds: 2 | 3 }[] = [
   { type: "G", pair: "C", bonds: 3 },
 ];
 
-function HydrogenBonds({ count, length, rotation, pulseStrength }: { count: 2 | 3, length: number, rotation: number, pulseStrength: number }) {
+function HydrogenBonds({ count, length, rotation, y }: { count: 2 | 3, length: number, rotation: number, y: number }) {
+  const meshRefs = useRef<(THREE.Mesh | null)[]>([]);
   const bondSpacing = 0.2;
   const startY = -((count - 1) * bondSpacing) / 2;
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime || performance.now() / 1000;
+    const pulseY = ((t * 1.5) % (DNA_HEIGHT + 10)) - (DNA_HEIGHT / 2 + 5);
+    const dist = Math.abs(y - pulseY);
+    const pulseStrength = Math.exp(-Math.pow(dist / 2.0, 2));
+
+    meshRefs.current.forEach((mesh) => {
+      if (mesh) {
+        (mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.2 + pulseStrength * 5;
+        (mesh.material as THREE.MeshStandardMaterial).opacity = 0.1 + pulseStrength * 0.4;
+      }
+    });
+  });
 
   return (
     <group rotation={[0, -rotation, Math.PI / 2]}>
       {Array.from({ length: count }).map((_, i) => (
-        <mesh key={i} position={[0, startY + i * bondSpacing, 0]}>
+        <mesh key={i} ref={(el) => (meshRefs.current[i] = el)} position={[0, startY + i * bondSpacing, 0]}>
           <cylinderGeometry args={[0.015, 0.015, length, 8]} />
           <meshStandardMaterial 
             color={MOLECULAR_COLORS.bond} 
             emissive={MOLECULAR_COLORS.bond}
-            emissiveIntensity={0.2 + pulseStrength * 4}
             transparent 
-            opacity={0.15 + pulseStrength * 0.3} 
           />
         </mesh>
       ))}
@@ -189,18 +202,29 @@ function HydrogenBonds({ count, length, rotation, pulseStrength }: { count: 2 | 
   );
 }
 
-function BaseNode({ type, position, rotation, pulseStrength }: { type: BaseType, position: [number, number, number], rotation: number, pulseStrength: number }) {
-  const baseColor = new THREE.Color(MOLECULAR_COLORS[type]);
-  const accentColor = new THREE.Color(MOLECULAR_COLORS.accent2);
-  const flashColor = baseColor.clone().lerp(accentColor, pulseStrength * 0.8);
+function BaseNode({ type, position, rotation, y }: { type: BaseType, position: [number, number, number], rotation: number, y: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const baseColor = useMemo(() => new THREE.Color(MOLECULAR_COLORS[type]), [type]);
+  const accentColor = useMemo(() => new THREE.Color(MOLECULAR_COLORS.accent2), []);
+
+  useFrame(({ clock }) => {
+    if (meshRef.current) {
+      const t = clock.elapsedTime || performance.now() / 1000;
+      const pulseY = ((t * 1.5) % (DNA_HEIGHT + 10)) - (DNA_HEIGHT / 2 + 5);
+      const dist = Math.abs(y - pulseY);
+      const pulseStrength = Math.exp(-Math.pow(dist / 2.0, 2));
+
+      const mat = meshRef.current.material as THREE.MeshPhysicalMaterial;
+      mat.color.copy(baseColor).lerp(accentColor, pulseStrength * 0.8);
+      mat.emissive.copy(mat.color);
+      mat.emissiveIntensity = 0.8 + pulseStrength * 8;
+    }
+  });
 
   return (
-    <mesh position={position} rotation={[0, -rotation, Math.PI / 2]}>
+    <mesh ref={meshRef} position={position} rotation={[0, -rotation, Math.PI / 2]}>
       <capsuleGeometry args={[0.07, 0.6, 4, 12]} />
       <meshPhysicalMaterial 
-        color={flashColor} 
-        emissive={flashColor}
-        emissiveIntensity={0.8 + pulseStrength * 6}
         roughness={0.15}
         metalness={0.4}
         transmission={0.5}
@@ -210,18 +234,29 @@ function BaseNode({ type, position, rotation, pulseStrength }: { type: BaseType,
   );
 }
 
-function MolecularNode({ color, position, size, pulseStrength }: { color: string, position: [number, number, number], size: number, pulseStrength: number }) {
-  const nodeColor = new THREE.Color(color);
-  const accentColor = new THREE.Color(MOLECULAR_COLORS.accent1);
-  const finalColor = nodeColor.clone().lerp(accentColor, pulseStrength * 0.4);
+function MolecularNode({ color, position, size, y }: { color: string, position: [number, number, number], size: number, y: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const nodeColor = useMemo(() => new THREE.Color(color), [color]);
+  const accentColor = useMemo(() => new THREE.Color(MOLECULAR_COLORS.accent1), []);
+
+  useFrame(({ clock }) => {
+    if (meshRef.current) {
+      const t = clock.elapsedTime || performance.now() / 1000;
+      const pulseY = ((t * 1.5) % (DNA_HEIGHT + 10)) - (DNA_HEIGHT / 2 + 5);
+      const dist = Math.abs(y - pulseY);
+      const pulseStrength = Math.exp(-Math.pow(dist / 2.0, 2));
+
+      const mat = meshRef.current.material as THREE.MeshPhysicalMaterial;
+      mat.color.copy(nodeColor).lerp(accentColor, pulseStrength * 0.4);
+      mat.emissive.copy(mat.color);
+      mat.emissiveIntensity = pulseStrength * 2;
+    }
+  });
 
   return (
-    <mesh position={position}>
+    <mesh ref={meshRef} position={position}>
       <sphereGeometry args={[size, 20, 20]} />
       <meshPhysicalMaterial 
-        color={finalColor} 
-        emissive={finalColor}
-        emissiveIntensity={pulseStrength * 1.5}
         roughness={0.1} 
         metalness={0.5}
         transmission={0.4}
@@ -279,7 +314,6 @@ const ANNOTATIONS = [
 
 function DNAHelix({ opacity = 1, showAnnotations = false }) {
   const groupRef = useRef<THREE.Group>(null);
-  const [pulseY, setPulseY] = useState(-15);
   
   const helixData = useMemo(() => {
     return Array.from({ length: NUM_PAIRS }).map((_, i) => {
@@ -301,35 +335,32 @@ function DNAHelix({ opacity = 1, showAnnotations = false }) {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime || performance.now() / 1000;
     if (groupRef.current) {
-      groupRef.current.rotation.y = t * 0.08;
-      groupRef.current.position.y = Math.sin(t * 0.5) * 0.2;
+      // SLOWER: Rotation speed 0.04 (was 0.08)
+      groupRef.current.rotation.y = t * 0.04;
+      // SLOWER: Motion oscillation 0.3 (was 0.5)
+      groupRef.current.position.y = Math.sin(t * 0.3) * 0.2;
     }
-    // Update Pulse Position: looping bottom to top
-    setPulseY(((t * 3.5) % (DNA_HEIGHT + 10)) - (DNA_HEIGHT / 2 + 5));
   });
 
   return (
     <group ref={groupRef}>
       <EnergyFlowLines />
       {helixData.map((data, i) => {
-        const dist = Math.abs(data.y - pulseY);
-        const pulseStrength = Math.exp(-Math.pow(dist / 2, 2));
-
         return (
           <group key={i}>
-            <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand1.phosphate} size={0.16} pulseStrength={pulseStrength} />
-            <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand1.sugar} size={0.24} pulseStrength={pulseStrength} />
-            <BaseNode type={data.basePair.type} position={data.strand1.base} rotation={data.angle} pulseStrength={pulseStrength} />
+            <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand1.phosphate} size={0.16} y={data.y} />
+            <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand1.sugar} size={0.24} y={data.y} />
+            <BaseNode type={data.basePair.type} position={data.strand1.base} rotation={data.angle} y={data.y} />
 
-            <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand2.phosphate} size={0.16} pulseStrength={pulseStrength} />
-            <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand2.sugar} size={0.24} pulseStrength={pulseStrength} />
-            <BaseNode type={data.basePair.pair} position={data.strand2.base} rotation={data.angle + Math.PI} pulseStrength={pulseStrength} />
+            <MolecularNode color={MOLECULAR_COLORS.phosphate} position={data.strand2.phosphate} size={0.16} y={data.y} />
+            <MolecularNode color={MOLECULAR_COLORS.sugar} position={data.strand2.sugar} size={0.24} y={data.y} />
+            <BaseNode type={data.basePair.pair} position={data.strand2.base} rotation={data.angle + Math.PI} y={data.y} />
 
-            <HydrogenBonds count={data.basePair.bonds} length={RADIUS_BASE * 1.6} rotation={data.angle} pulseStrength={pulseStrength} />
+            <HydrogenBonds count={data.basePair.bonds} length={RADIUS_BASE * 1.6} rotation={data.angle} y={data.y} />
 
             {/* Backbone connection */}
-            <Line points={[data.strand1.phosphate, data.strand1.sugar]} color={MOLECULAR_COLORS.phosphate} lineWidth={0.3} transparent opacity={0.1 + pulseStrength * 0.2} />
-            <Line points={[data.strand2.phosphate, data.strand2.sugar]} color={MOLECULAR_COLORS.phosphate} lineWidth={0.3} transparent opacity={0.1 + pulseStrength * 0.2} />
+            <Line points={[data.strand1.phosphate, data.strand1.sugar]} color={MOLECULAR_COLORS.phosphate} lineWidth={0.3} transparent opacity={0.15} />
+            <Line points={[data.strand2.phosphate, data.strand2.sugar]} color={MOLECULAR_COLORS.phosphate} lineWidth={0.3} transparent opacity={0.15} />
 
             {/* Premium Annotations */}
             {showAnnotations && ANNOTATIONS.find(a => a.index === i) && (() => {
@@ -376,13 +407,12 @@ function SceneCameraController() {
   useFrame(({ camera, clock }) => {
     const t = clock.elapsedTime || performance.now() / 1000;
     
-    // Smooth random-like rotation (using nested sines)
-    camera.rotation.y = Math.sin(t * 0.1) * 0.2;
-    camera.rotation.x = Math.cos(t * 0.07) * 0.1;
+    // Smooth random-like rotation (SLOWER)
+    camera.rotation.y = Math.sin(t * 0.05) * 0.2;
+    camera.rotation.x = Math.cos(t * 0.03) * 0.1;
     
-    // Pulse Zoom In/Out
-    // Oscillates between 15 and 22 units on Z
-    camera.position.z = 18.5 + Math.sin(t * 0.3) * 3.5;
+    // Pulse Zoom In/Out (SLOWER)
+    camera.position.z = 18.5 + Math.sin(t * 0.15) * 3.5;
   });
 
   return null;
