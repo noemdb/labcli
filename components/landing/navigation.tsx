@@ -36,10 +36,10 @@ export function Navigation() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out border-b ${
         isScrolled
-          ? "bg-background/95 backdrop-blur shadow-sm py-3"
-          : "bg-transparent py-5"
+          ? "bg-orange-600/[0.08] backdrop-blur-xl border-orange-500/20 shadow-[0_8px_32px_rgba(249,115,22,0.05)] py-3"
+          : "bg-orange-500/[0.02] border-transparent py-5"
       }`}
     >
       <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">

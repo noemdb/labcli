@@ -6,12 +6,24 @@ import { DNAWrapper } from "./dna-wrapper";
 export function HeroSection() {
   return (
     <section className="relative min-h-[90vh] flex flex-col justify-center items-start overflow-hidden bg-black noise-overlay">
-      {/* 3D WebGL Background Container */}
-      <div className="absolute inset-0 z-0">
-        {/* <DNAWrapper /> */}
-        {/* Gradients for contrast - stay static over the rotating image */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/60 to-transparent z-[1] pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/90 z-[1] pointer-events-none" />
+      {/* Background Video Container */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover scale-[1.05] opacity-90 transition-opacity duration-1000"
+        >
+          <source src="/videos/landing/motion.mp4" type="video/mp4" />
+        </video>
+        
+        {/* Premium dark overlay to blend the video into the biotech aesthetic */}
+        <div className="absolute inset-0 bg-black/40 mix-blend-multiply z-[1] pointer-events-none" />
+        
+        {/* Gradients for contrast - stay static over the background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/60 to-transparent z-[2] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background/90 z-[2] pointer-events-none" />
       </div>
 
       {/* Subtle grid lines */}
