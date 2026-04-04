@@ -8,7 +8,7 @@ export function HeroSection() {
     <section className="relative min-h-[90vh] flex flex-col justify-center items-start overflow-hidden bg-black noise-overlay">
       {/* 3D WebGL Background Container */}
       <div className="absolute inset-0 z-0">
-        <DNAWrapper />
+        {/* <DNAWrapper /> */}
         {/* Gradients for contrast - stay static over the rotating image */}
         <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/60 to-transparent z-[1] pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/90 z-[1] pointer-events-none" />
